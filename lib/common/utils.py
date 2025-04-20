@@ -51,7 +51,7 @@ def get_version_str():
 logger = None
 LOG_LVL_NOTICE = 25
 LOG_LVL_TRACE = 5
-SEARCH_VERSION = re.compile('^([\d]+)\.([\d]+)\.([\d]+)(?:\.([\d]+))*(?:[\D]+(\d)+)*')
+SEARCH_VERSION = re.compile(r'^([\d]+)\.([\d]+)\.([\d]+)(?:\.([\d]+))*(?:[\D]+(\d)+)*')
 
 def get_version_index(_ver):
     """
