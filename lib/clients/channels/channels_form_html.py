@@ -280,6 +280,7 @@ class ChannelsFormHTML:
         sids_processed = {}
         for sid_data in self.ch_data:
             sid = sid_data['uid']
+            content_uid = sid_data['content_uid']
             instance = sid_data['instance']
             if sid_data['enabled']:
                 enabled = 'checked'
@@ -362,7 +363,10 @@ class ChannelsFormHTML:
                 '</td></tr><tr><td style="border: none; background: none;">',
                 'size=', str(image_size), '   original_size=', str(original_size),
                 '</td></tr></table></td>',
-                '<td style="text-align: center">', quality, ' ', vod, ' ',
+                '<td style="text-align: center">', 
+                'content_uid',
+                self.get_input_text(sid_data, sid, instance, 'content_uid'), '<br>',
+                quality, ' ', vod, ' ',
                 sid_data['json']['callsign'], ' ', sid, '<br>',
                 groups_other,
                 '</td>',

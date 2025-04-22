@@ -124,6 +124,10 @@ def get_channels_m3u(_config, _base_url, _namespace, _instance, _plugins):
                 str(sid_data['display_number']), sid_data['namespace'],
                 sid_data['instance'], _config)
             service_name = ch_obj.set_service_name(sid_data)
+
+            if sid_data.get('content_uid'):
+                sid = sid_data.get('content_uid')
+
             fakefile.write(
                 '%s\n' % (
                         record_marker + ':-1' + ' ' +

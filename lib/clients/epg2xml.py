@@ -17,7 +17,6 @@ The above copyright notice and this permission notice shall be included in all c
 substantial portions of the Software.
 """
 
-import traceback
 import datetime
 import errno
 import logging
@@ -99,19 +98,18 @@ class EPG:
                 'text': None})
             xml_out = self.gen_header_xml()
             channel_list = self.channels_db.get_channels(self.namespace, self.instance)
-            self.gen_channel_xml(xml_out, channel_list)
+            _, channels_written =  self.gen_channel_xml(xml_out, channel_list)
             self.write_xml(xml_out, keep_xml_prolog=True)
             xml_out = None
 
             self.epg_db.init_get_query(self.namespace, self.instance)
 
             day_data, ns, inst, day = self.get_next_epg_day()
-            self.logger.debug('Processing EPG data {}:{} {}'
-                              .format(ns, inst, day))
+            self.logger.debug('Processing EPG data {}:{} {}'.format(ns, inst, day))
             self.prog_processed = []
             while day_data:
                 xml_out = EPG.gen_minimal_header_xml()
-                self.gen_program_xml(xml_out, day_data, channel_list, ns, inst)
+                self.gen_program_xml(xml_out, day_data, channels_written)
                 self.write_xml(xml_out)
                 xml_out.clear()
                 day_data, ns, inst, day = self.get_next_epg_day()
@@ -177,6 +175,7 @@ class EPG:
 
     def gen_channel_xml(self, _et_root, _channel_list):
         sids_processed = []
+        channels_written = {}
         for sid, sid_data_list in _channel_list.items():
             if sid in sids_processed:
                 continue
@@ -201,9 +200,12 @@ class EPG:
                     ch_ref = ''
                 if self.config['epg'].get('epg_use_channel_number'):
                     ch_ref += updated_chnum
+                elif ch_data['content_uid'] is not None:
+                    ch_ref += ch_data['content_uid']
                 else:
                     ch_ref += sid
-                c_out = EPG.sub_el(_et_root, 'channel', id=ch_ref)
+
+                c_out = EPG.sub_el(_et_root, 'channel', id=ch_ref) 
 
                 EPG.sub_el(c_out, 'display-name', _text='%s %s' %
                                                         (updated_chnum, ch_data['display_name']))
@@ -214,38 +216,22 @@ class EPG:
 
                 if self.config['epg']['epg_channel_icon'] and ch_data['thumbnail'] is not None:
                     EPG.sub_el(c_out, 'icon', src=ch_data['thumbnail'])
-                break
-        return _et_root
+            
+                channels_written[ch_ref] = True
 
-    def gen_program_xml(self, _et_root, _prog_list, _channel_list, _ns, _inst):
+                break
+        return _et_root, channels_written
+
+
+    def gen_program_xml(self, _et_root, _prog_list, channels_written):
 
         for prog_data in _prog_list:
             proginfo = prog_data['start'] + prog_data['channel']
+            if not channels_written.get(prog_data['channel']):
+                continue
             if proginfo in self.prog_processed:
                 continue
-            skip = False
-            try:
-                for ch_data in _channel_list[prog_data['channel']]:
-                    if ch_data['namespace'] == _ns \
-                            and ch_data['instance'] == _inst:
-                        if not ch_data['enabled']:
-                            skip = True
-                            break
-                        config_section = utils.instance_config_section(ch_data['namespace'], ch_data['instance'])
-                        if not self.config[ch_data['namespace'].lower()]['enabled']:
-                            skip = True
-                            break
-                        if not self.config[config_section]['enabled']:
-                            skip = True
-                            break
-                        if not self.config[config_section]['epg-enabled']:
-                            skip = True
-                            break
-            except KeyError as ex:
-                skip = True
-            
-            if skip:
-                continue
+
             self.prog_processed.append(proginfo)
 
             if self.config['epg'].get('epg_add_plugin_to_channel_id'):
@@ -253,7 +239,7 @@ class EPG:
             else:
                 ch_ref = ''
             if self.config['epg'].get('epg_use_channel_number'):
-                ch_data = _channel_list[prog_data['channel']][0]
+                ch_data = channels_written[prog_data['channel']][0]
                 updated_chnum = utils.wrap_chnum(
                     ch_data['display_number'], ch_data['namespace'],
                     ch_data['instance'], self.config)

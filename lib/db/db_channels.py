@@ -99,19 +99,20 @@ sqlcmds = {
         """
         INSERT INTO channels (
             namespace, instance, enabled, uid, number, display_number, display_name,
-            group_tag, thumbnail, thumbnail_size, updated, json
-            ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+            group_tag, thumbnail, thumbnail_size, updated, json, content_uid
+            ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
         """,
     'channels_update':
         """
         UPDATE channels SET 
-            number=?, updated=?, json=?
+            number=?, updated=?, json=?, content_uid=?
             WHERE namespace=? AND instance=? AND uid=?
         """,
     'channels_editable_update':
         """
         UPDATE channels SET 
-            enabled=?, display_number=?, display_name=?, group_tag=?, thumbnail=?, thumbnail_size=?
+            enabled=?, display_number=?, display_name=?, group_tag=?, thumbnail=?, 
+            thumbnail_size=?, content_uid=?
             WHERE namespace=? AND instance=? AND uid=?
         """,
     'channels_updated_update':
@@ -202,6 +203,13 @@ class DBChannels(DB):
 
     def __init__(self, _config):
         super().__init__(_config, _config['datamgmt'][DB_CONFIG_NAME], sqlcmds)
+        self.updateTables()
+
+    def updateTables(self):
+        has_content_uid = self.get_dict(None, sql="SELECT name " \
+            "FROM pragma_table_info('channels') WHERE name='content_uid'")
+        if not has_content_uid:
+            self.sql_exec("ALTER TABLE channels ADD COLUMN content_uid VARCHAR(255) NULL")
 
     def save_channel_list(self, _namespace, _instance, _ch_dict, save_edit_groups=True):
         """
@@ -230,7 +238,8 @@ class DBChannels(DB):
                     ch['thumbnail'],
                     str(ch['thumbnail_size']),
                     True,
-                    json.dumps(ch)))
+                    json.dumps(ch),
+                    ch.get('content_uid'),))
             except sqlite3.IntegrityError as ex:
                 # record already present.  Check the thumbnail and update as needed
                 ch_stored = self.get_channel(ch['id'], _namespace, _instance)
@@ -242,6 +251,7 @@ class DBChannels(DB):
                     ch['number'],
                     True,
                     json.dumps(ch),
+                    ch.get('content_uid'),
                     _namespace,
                     _instance,
                     ch['id']
@@ -262,6 +272,7 @@ class DBChannels(DB):
             _ch['group_tag'],
             _ch['thumbnail'],
             str(_ch['thumbnail_size']),
+            _ch.get('content_uid'),
             _ch['namespace'],
             _ch['instance'],
             _ch['uid']
