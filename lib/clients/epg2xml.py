@@ -105,16 +105,14 @@ class EPG:
             self.epg_db.init_get_query(self.namespace, self.instance)
 
             day_data, ns, inst, day = self.get_next_epg_day()
-            self.logger.debug('Processing EPG data {}:{} {}'.format(ns, inst, day))
             self.prog_processed = []
             while day_data:
+                self.logger.debug('Processing EPG data {}:{} {}'.format(ns, inst, day))
                 xml_out = EPG.gen_minimal_header_xml()
                 self.gen_program_xml(xml_out, day_data, channels_written)
                 self.write_xml(xml_out)
                 xml_out.clear()
                 day_data, ns, inst, day = self.get_next_epg_day()
-                self.logger.debug('Processing EPG data {}:{} {}'
-                                  .format(ns, inst, day))
             day_data = None
             self.epg_db.close_query()
             self.webserver.wfile.write(b'</tv>\r\n')
@@ -247,8 +245,8 @@ class EPG:
             else:
                 ch_ref += prog_data['channel']
             prog_out = EPG.sub_el(_et_root, 'programme',
-                                  start=prog_data['start'],
-                                  stop=prog_data['stop'],
+                                  start=utils.str_dt_to_local_str_dt(prog_data['start']),
+                                  stop=utils.str_dt_to_local_str_dt(prog_data['stop']),
                                   channel=ch_ref)
             if prog_data['title']:
                 EPG.sub_el(prog_out, 'title', lang='en', _text=prog_data['title'])

@@ -201,6 +201,8 @@ class DBepg(DB):
 
     def get_next_row(self):
         row = self.get_dict_next()
+        while row and row['day'] < datetime.datetime.utcnow().date():
+            row = self.get_dict_next()
         namespace = None
         instance = None
         day = None

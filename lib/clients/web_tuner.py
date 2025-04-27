@@ -123,6 +123,10 @@ class TunerHttpHandler(WebHTTPHandler):
                 .format(ex))
             raise
 
+    def do_HEAD(self):
+        self.send_response(200)
+        self.end_headers()
+        
     def do_GET(self):
         try:
             self.content_path, self.query_data = self.get_query_data()
@@ -195,11 +199,14 @@ class TunerHttpHandler(WebHTTPHandler):
                 .format(_namespace, _instance, sid))
             self.do_mime_response(503, 'text/html', web_templates['htmlError'].format('503 - Unknown channel'))
             return
-        self.logger.notice('{}:{} Tuning to channel {}'.format(self.real_namespace, self.real_instance, sid))
         if self.config[section]['player-stream_type'] == 'm3u8redirect':
+            self.logger.notice('[{}] m3u8redirect to channel {}:{}:{}'
+                .format(self.address_string(), self.real_namespace, self.real_instance, sid))
             self.do_dict_response(self.m3u8_redirect.gen_m3u8_response(station_data))
             return
         elif self.config[section]['player-stream_type'] == 'internalproxy':
+            self.logger.notice('[{}] internalproxy to channel {}:{}:{}'
+                .format(self.address_string(), self.real_namespace, self.real_instance, sid))
             resp = self.internal_proxy.gen_response(
                 self.real_namespace, self.real_instance, 
                 station_data['display_number'], station_data['json'].get('VOD'))
@@ -209,6 +216,8 @@ class TunerHttpHandler(WebHTTPHandler):
             else:
                 self.internal_proxy.stream(station_data, self.wfile, self.terminate_queue, resp['tuner'])
         elif self.config[section]['player-stream_type'] == 'ffmpegproxy':
+            self.logger.notice('[{}] ffmpegproxy to channel {}:{}:{}'
+                .format(self.address_string(), self.real_namespace, self.real_instance, sid))
             resp = self.ffmpeg_proxy.gen_response(
                 self.real_namespace, self.real_instance, 
                 station_data['display_number'], station_data['json'].get('VOD'))
@@ -218,6 +227,8 @@ class TunerHttpHandler(WebHTTPHandler):
             else:
                 self.ffmpeg_proxy.stream(station_data, self.wfile, resp['tuner'])
         elif self.config[section]['player-stream_type'] == 'streamlinkproxy':
+            self.logger.notice('[{}] streamlinkproxy to channel {}:{}:{}'
+                .format(self.address_string(), self.real_namespace, self.real_instance, sid))
             resp = self.streamlink_proxy.gen_response(
                 self.real_namespace, self.real_instance, 
                 station_data['display_number'], station_data['json'].get('VOD'))

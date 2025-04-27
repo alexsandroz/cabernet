@@ -359,3 +359,17 @@ def set_str(string, add_null):
     else:
         return struct.pack('B%ds' % (len(string)), len(string), string)
 
+
+def str_to_datetime(date_str):
+    return datetime.datetime.strptime(date_str, '%Y%m%d%H%M%S %z')
+
+def str_dt_to_local_str_dt(date_str):
+    """
+    Converts a string datetime with timezone info to a local string datetime.
+    """
+    # Parse the input string into a datetime object
+    dt = datetime.datetime.strptime(date_str, '%Y%m%d%H%M%S %z')    
+    # Convert to local timezone
+    local_dt = dt.astimezone()
+    # Format back to string in the same format
+    return local_dt.strftime('%Y%m%d%H%M%S %z')

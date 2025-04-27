@@ -112,7 +112,7 @@ class XMLTV:
 
     def get_program(self, elem):
         program = None
-        dt = self.str_to_datetime(elem.attrib['start'])
+        dt = utils.str_to_datetime(elem.attrib['start'])
         dt_utc = utils.convert_to_utc(dt)
         if self.start_date is None or self.start_date == dt_utc.date():
             program = {'channel': elem.attrib['channel'], 'progid': None,
@@ -230,9 +230,6 @@ class XMLTV:
                     return True
             if event == 'end' and elem.tag == 'programme':
                 return False
-
-    def str_to_datetime(self, date_str):
-        return datetime.datetime.strptime(date_str, '%Y%m%d%H%M%S %z')
         
     def get_ch_channel(self, elem):
         return elem.attrib['id']

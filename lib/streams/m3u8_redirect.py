@@ -39,7 +39,7 @@ class M3U8Redirect(Stream):
                 'headers': {'Content-type': 'text/html'},
                 'text': web_templates['htmlError'].format('501 - Unknown channel')}
 
-        self.logger.info('Sending M3U8 file directly to client')
+        self.logger.debug('Sending M3U8 file directly to client')
         return {
             'code': 302,
             'headers': {'Location': channel_uri},
