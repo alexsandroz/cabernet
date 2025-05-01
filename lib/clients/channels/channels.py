@@ -96,13 +96,10 @@ def get_channels_m3u(_config, _base_url, _namespace, _instance, _plugins):
                 continue
             sids_processed.append(sid)
             stream = _config[config_section]['player-stream_type']
-            # if stream == 'm3u8redirect' and sid_data['json'].get('stream_url'):
-            #     uri = sid_data['json']['stream_url']
-            # else:
-            #     uri = ch_obj.set_uri(sid_data)
-
-            # Allways return internal uri
-            uri = ch_obj.set_uri(sid_data)
+            if stream == 'm3u8redirect' and sid_data['json'].get('stream_url'):
+                uri = sid_data['json']['stream_url']
+            else:
+                uri = ch_obj.set_uri(sid_data)
 
             # NOTE tvheadend supports '|' separated names in two attributes
             # either 'group-title' or 'tvh-tags'

@@ -32,6 +32,7 @@ from urllib.parse import urlparse
 
 from lib.common import utils
 from lib.common.decorators import gettunerrequest
+from lib.streams.m3u8_proxy import M3U8Proxy
 from lib.web.pages.templates import web_templates
 from lib.db.db_config_defn import DBConfigDefn
 from lib.streams.m3u8_redirect import M3U8Redirect
@@ -50,7 +51,7 @@ def tunerstatus(_webserver):
 @gettunerrequest.route('RE:/watch/.+')
 def watch(_webserver):
     sid = _webserver.content_path.replace('/watch/', '')
-    _webserver.do_tuning(sid, _webserver.query_data['name'], _webserver.query_data['instance'])
+    _webserver.do_tuning(sid, _webserver.query_data['name'], _webserver.query_data['instance'], _webserver.query_data)
 
 
 @gettunerrequest.route('/logreset')
@@ -105,6 +106,7 @@ class TunerHttpHandler(WebHTTPHandler):
         self.content_path = None
         self.query_data = None
         self.m3u8_redirect = M3U8Redirect(TunerHttpHandler.plugins, TunerHttpHandler.hdhr_queue)
+        self.m3u8_proxy = M3U8Proxy(TunerHttpHandler.plugins, TunerHttpHandler.hdhr_queue)
         self.internal_proxy = InternalProxy(TunerHttpHandler.plugins, TunerHttpHandler.hdhr_queue)
         self.ffmpeg_proxy = FFMpegProxy(TunerHttpHandler.plugins, TunerHttpHandler.hdhr_queue)
         self.streamlink_proxy = StreamlinkProxy(TunerHttpHandler.plugins, TunerHttpHandler.hdhr_queue)
@@ -124,9 +126,8 @@ class TunerHttpHandler(WebHTTPHandler):
             raise
 
     def do_HEAD(self):
-        self.send_response(200)
-        self.end_headers()
-        
+        pass
+
     def do_GET(self):
         try:
             self.content_path, self.query_data = self.get_query_data()
@@ -163,7 +164,7 @@ class TunerHttpHandler(WebHTTPHandler):
             self.logger.exception('{}{}'.format(
                 'UNEXPECTED EXCEPTION on POST=', ex))
 
-    def do_tuning(self, sid, _namespace, _instance):
+    def do_tuning(self, sid, _namespace, _instance, _query_data=None):
         # refresh the config data in case it changed in the web_admin process
         self.plugins.config_obj.refresh_config_data()
         self.config = self.db_configdefn.get_config()
@@ -203,6 +204,11 @@ class TunerHttpHandler(WebHTTPHandler):
             self.logger.notice('[{}] m3u8redirect to channel {}:{}:{}'
                 .format(self.address_string(), self.real_namespace, self.real_instance, sid))
             self.do_dict_response(self.m3u8_redirect.gen_m3u8_response(station_data))
+            return
+        elif self.config[section]['player-stream_type'] == 'm3u8proxy':
+            self.logger.notice('[{}] m3u8proxy to channel {}:{}:{}'
+                .format(self.address_string(), self.real_namespace, self.real_instance, sid))
+            self.do_dict_response(self.m3u8_proxy.gen_m3u8_response(station_data, _query_data))
             return
         elif self.config[section]['player-stream_type'] == 'internalproxy':
             self.logger.notice('[{}] internalproxy to channel {}:{}:{}'
