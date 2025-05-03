@@ -41,7 +41,7 @@ class Stream:
                 {'namespace': _namespace, 'tuner': _index,
                  'channel': _channel, 'status': _status})
 
-    def find_tuner(self, _namespace, _instance, _ch_num, _isvod):
+    def find_tuner(self, _namespace, _instance, _ch_num, _isvod, reuse=False):
         # keep track of how many tuners we can use at a time
         found = -1
         scan_list = WebHTTPHandler.rmg_station_scans[_namespace]
@@ -53,11 +53,13 @@ class Stream:
                 if scan_status['instance'] == _instance \
                         and scan_status['ch'] == _ch_num \
                         and not _isvod \
-                        and scan_status['mux'] \
-                        and not scan_status['mux'].terminate_requested:
+                        and (reuse or (scan_status['mux'] \
+                        and not scan_status['mux'].terminate_requested)):
                     found = index
                     break
         if found == -1:
+            return found
+        elif isinstance(scan_status, dict) and reuse:
             return found
         if WebHTTPHandler.rmg_station_scans[_namespace][index] != 'Idle':
             self.logger.debug('Reusing tuner {} {}:{} ch:{}'.format(found, _namespace, _instance, _ch_num))

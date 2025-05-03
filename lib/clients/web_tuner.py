@@ -51,7 +51,7 @@ def tunerstatus(_webserver):
 @gettunerrequest.route('RE:/watch/.+')
 def watch(_webserver):
     sid = _webserver.content_path.replace('/watch/', '')
-    _webserver.do_tuning(sid, _webserver.query_data['name'], _webserver.query_data['instance'], _webserver.query_data)
+    _webserver.do_tuning(sid, _webserver.query_data['name'], _webserver.query_data['instance'])
 
 
 @gettunerrequest.route('/logreset')
@@ -126,7 +126,9 @@ class TunerHttpHandler(WebHTTPHandler):
             raise
 
     def do_HEAD(self):
-        pass
+        self.send_response(200) 	
+        self.send_header('Content-Type', 'application/vnd.apple.mpegurl')
+        self.end_headers()
 
     def do_GET(self):
         try:
@@ -164,7 +166,7 @@ class TunerHttpHandler(WebHTTPHandler):
             self.logger.exception('{}{}'.format(
                 'UNEXPECTED EXCEPTION on POST=', ex))
 
-    def do_tuning(self, sid, _namespace, _instance, _query_data=None):
+    def do_tuning(self, sid, _namespace, _instance):
         # refresh the config data in case it changed in the web_admin process
         self.plugins.config_obj.refresh_config_data()
         self.config = self.db_configdefn.get_config()
@@ -208,7 +210,7 @@ class TunerHttpHandler(WebHTTPHandler):
         elif self.config[section]['player-stream_type'] == 'm3u8proxy':
             self.logger.notice('[{}] m3u8proxy to channel {}:{}:{}'
                 .format(self.address_string(), self.real_namespace, self.real_instance, sid))
-            self.do_dict_response(self.m3u8_proxy.gen_m3u8_response(station_data, _query_data))
+            self.do_dict_response(self.m3u8_proxy.gen_m3u8_response(station_data, self.query_data))
             return
         elif self.config[section]['player-stream_type'] == 'internalproxy':
             self.logger.notice('[{}] internalproxy to channel {}:{}:{}'
