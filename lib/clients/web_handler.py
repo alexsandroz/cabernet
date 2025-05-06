@@ -168,7 +168,9 @@ class WebHTTPHandler(BaseHTTPRequestHandler):
         for header, value in rsp_dict['headers'].items():
             self.send_header(header, value)
         self.end_headers()
-        if rsp_dict['text']:
+        if rsp_dict.get('content'):
+            self.do_write(rsp_dict['content'])
+        elif rsp_dict.get('text'):
             self.do_write(rsp_dict['text'].encode('utf-8'))
 
     def do_write(self, _data):
