@@ -93,6 +93,11 @@ class WebAdminHttpHandler(WebHTTPHandler):
         except ValueError as ex:
             self.logger.warning('ValueError occurred, Possible Bad stream recieved.  {}'.format(str(ex)))
 
+    def do_HEAD(self):
+        self.send_response(200) 	
+        self.send_header('Content-Type', 'text/html')
+        self.end_headers()
+
     def do_GET(self):
         try:
             valid_check = re.match(r'^(/([A-Za-z0-9._\-]+)/[A-Za-z0-9._\-/]+)[?%&A-Za-z0-9._\-/=]*$', self.path)

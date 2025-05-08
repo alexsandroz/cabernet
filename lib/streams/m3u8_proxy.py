@@ -38,7 +38,6 @@ class M3U8Proxy(Stream):
 
             if not channel_uri:
                 self.logger.error('Unknown channel:{}'.format(_channel_dict['uid']))
-                self.update_tuner_status('Idle')
                 return {
                     'code': 501,
                     'headers': {'Content-type': 'text/html'},
@@ -47,6 +46,7 @@ class M3U8Proxy(Stream):
             base_path = f"/{self.namespace}/watch/{str(_channel_dict['uid'])}"
             base_uri = f"http://{self.config['web']['plex_accessible_ip']}:{self.config['web']['plex_accessible_port']}{base_path}"
             
+            # Segments
             header = _channel_dict['json'].get('Header')            
             plugin_obj = self.plugins.plugins[_channel_dict['namespace']].plugin_obj
             if _query_data and 'segment' in _query_data:
@@ -59,24 +59,28 @@ class M3U8Proxy(Stream):
                     'code': 302,
                     'headers': header,
                     'text': None}
+
+            # keys
             elif _query_data and 'key' in _query_data:
                 key_uri = unquote(_query_data['key'])
                 response = plugin_obj.http_session.get(key_uri, headers=header, verify=False)
                 if response.status_code >= 400:
                     self.logger.error('Error tunning channel:{}'.format(_channel_dict['uid']))
-                    self.update_tuner_status('Idle')
+                    #self.update_tuner_status('Idle')
                 return {
                     'code': response.status_code,
                     'headers': {'Content-Type': response.headers['Content-Type'],
                                 'Content-Length': str(len(response.content)),},
                     'content': response.content}
+
+            # playlist
             elif _query_data and 'playlist' in _query_data:
                 channel_uri = unquote(_query_data['playlist'])
 
             response = plugin_obj.http_session.get(channel_uri, headers=header, verify=False)
             if response.status_code >= 400:
                 self.logger.error('Error tunning channel:{}'.format(_channel_dict['uid']))
-                self.update_tuner_status('Idle')
+                #self.update_tuner_status('Idle')
                 return {
                     'code': response.status_code,
                     'headers': {'Content-type': 'text/html'},
@@ -93,7 +97,7 @@ class M3U8Proxy(Stream):
                 p.uri = f'{base_uri}?playlist={quote(uri)}'
             for k in playlist.keys: 
                 if k and k.uri: 
-                    uri = urljoin(response.url, s.uri)                
+                    uri = urljoin(response.url, k.uri)                
                     k.uri = f'{base_uri}?key={quote(uri)}' 
             
             playlist_data = playlist.dumps()
@@ -103,9 +107,9 @@ class M3U8Proxy(Stream):
                 'headers': response.headers,
                 'text': playlist_data}
         except Exception as e:
-            self.logger.error(f"An error occurred while generating the M3U8 response: {e}")
-            self.update_tuner_status('Idle')
-            return {
+            self.logger.error(f"An error occurred while generating the M3U8 response: {e}", exc_info=True)
+            #self.update_tuner_status('Idle')
+            return { 
             'code': 500,
             'headers': {'Content-type': 'text/html'},
             'text': web_templates['htmlError'].format('500 - Internal Server Error')}
@@ -121,14 +125,17 @@ class M3U8Proxy(Stream):
             else:
                 tuners[self.tuner_no]['status'] = _status
                 tuners[self.tuner_no]['last_tune'] = datetime.now().timestamp()
+                self.logger.debug('Update tuner:{} channel:{} status:{}'
+                                 .format(self.tuner_no,self.channel_uid,_status))
+
 
     def clear_tuner_status(self):
         # If the tuner is not in use by 15 seconds, set it to Idle
-        timeout = datetime.now().timestamp() - 15
+        timeout = datetime.now().timestamp() - 30
         for _name_space, tuners in WebHTTPHandler.rmg_station_scans.items():
             for tuner_no, tuner in enumerate(tuners):
                 if type(tuner) is dict:                
                     _instance = tuner['instance']
                     if tuner.get('last_tune', 0) < timeout:
-                        self.logger.info('Disconnect tuner:{} channel:{}'.format(tuner_no, tuner['ch']))
+                        self.logger.debug('Disconnect tuner:{} channel:{}'.format(tuner_no, tuner['ch']))
                         tuners[tuner_no] = 'Idle'
