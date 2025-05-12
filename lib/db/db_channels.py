@@ -222,7 +222,10 @@ class DBChannels(DB):
         self.update(DB_CHANNELS_TABLE + '_updated', (_namespace, _instance,))
         for ch in _ch_dict:
             if save_edit_groups:
-                edit_groups = ch['groups_other']
+                if isinstance(ch['groups_other'], list):                    
+                    edit_groups = ','.join(ch['groups_other'])
+                else:
+                    edit_groups = str(ch['groups_other'])
             else:
                 edit_groups = None
             try:
