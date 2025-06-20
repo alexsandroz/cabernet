@@ -361,7 +361,7 @@ class ChannelsFormHTML:
                 '</td></tr><tr><td style="border: none; background: none;">',
                 display_image,
                 '</td></tr><tr><td style="border: none; background: none;">',
-                'size=', str(image_size), '   original_size=', str(original_size),
+                #'size=', str(image_size), '   original_size=', str(original_size),
                 '</td></tr></table></td>',
                 '<td style="text-align: center">', 
                 'content_uid',

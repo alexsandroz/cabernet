@@ -116,6 +116,11 @@ class M3U8Proxy(Stream):
                     k.uri = f'{base_uri}?key={quote(uri)}' 
             
             playlist_data = playlist.dumps()
+            # kodi_prop = 'EXTM3U\n'
+            # kodi_prop += '#KODIPROP:inputstream=inputstream.ffmpegdirect\n'
+            # kodi_prop += '#KODIPROP:inputstream.ffmpegdirect.is_realtime_stream=false\n'
+            # kodi_prop += '#KODIPROP:inputstream.ffmpegdirect.manifest_type=hls\n'
+            # playlist_data.replace('EXTM3U\n', kodi_prop)
             response.headers['Content-Length'] = str(len(playlist_data))
             return {
                 'code': 200,
