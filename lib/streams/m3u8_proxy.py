@@ -1,5 +1,4 @@
 
-import traceback
 from urllib.parse import quote, unquote, urljoin
 from datetime import datetime
 
@@ -7,7 +6,7 @@ import urllib3
 from lib import m3u8
 from lib.clients.web_handler import WebHTTPHandler
 from lib.web.pages.templates import web_templates
-from .stream import Stream
+from lib.streams.stream import Stream
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -92,13 +91,19 @@ class M3U8Proxy(Stream):
                 channel_uri = unquote(_query_data['playlist'])
 
             response = plugin_obj.http_session.get(channel_uri, headers=header, verify=False)
+            
             if response.status_code >= 400:
-                msg = 'Error get m3u8 playlist for channel:{}'.format(_channel_dict['uid'])
-                self.logger.error(msg)
-                return {
-                    'code': response.status_code,
-                    'headers': {'Content-type': 'text/html'},
-                    'text': msg } 
+                self.update_error_connection(_channel_dict)
+                redirect = self.select_alternative_source(_channel_dict)
+                if redirect is not None:
+                    return redirect
+                else:
+                    msg = 'Error get m3u8 playlist for channel:{}'.format(_channel_dict['uid'])
+                    self.logger.error(msg)
+                    return {
+                        'code': response.status_code,
+                        'headers': {'Content-type': 'text/html'},
+                        'text': msg } 
 
             WebHTTPHandler.rmg_station_scans[self.namespace][self.tuner_no]['channel_uri'] = response.request.url
             playlist = m3u8.loads(response.text)        
@@ -116,12 +121,12 @@ class M3U8Proxy(Stream):
                     k.uri = f'{base_uri}?key={quote(uri)}' 
             
             playlist_data = playlist.dumps()
-            # kodi_prop = 'EXTM3U\n'
-            # kodi_prop += '#KODIPROP:inputstream=inputstream.ffmpegdirect\n'
-            # kodi_prop += '#KODIPROP:inputstream.ffmpegdirect.is_realtime_stream=false\n'
-            # kodi_prop += '#KODIPROP:inputstream.ffmpegdirect.manifest_type=hls\n'
-            # playlist_data.replace('EXTM3U\n', kodi_prop)
             response.headers['Content-Length'] = str(len(playlist_data))
+
+            # Update channel connection status in the database
+            _channel_dict.update({'last_seen': datetime.now().timestamp(), 'next_connection': None, 'error_count': 0})
+            WebHTTPHandler.channels_db.update_connection_status(_channel_dict)
+
             return {
                 'code': 200,
                 'headers': response.headers,
@@ -134,6 +139,52 @@ class M3U8Proxy(Stream):
             'code': 500,
             'headers': {'Content-type': 'text/html'},
             'text': msg}
+
+    def update_error_connection(self, _channel_dict):
+        last_seen = _channel_dict.get('last_seen', None)
+        error_count = _channel_dict.get('error_count', 0) + 1
+        # Increment next_connection by 1 minute exponentially up to a limit of 1 day
+        if error_count < 25:
+            next_connection = datetime.now().timestamp() + (error_count * error_count * 60) 
+        else:
+            next_connection = datetime.now().timestamp() + (24 * 60 * 60)
+        _channel_dict.update({'last_seen': last_seen, 'next_connection': next_connection, 'error_count': error_count})
+        WebHTTPHandler.channels_db.update_connection_status(_channel_dict)
+
+    def select_alternative_source(self, _channel_dict):
+        content_uid = _channel_dict.get('content_uid')
+        if not content_uid:
+            return None
+
+        self.logger.info('Source unavailable. Trying alternative source for channel:{}'.format(content_uid))
+        alternative_sources = WebHTTPHandler.channels_db.get_channel_by_content_uid(content_uid)
+
+        # Remove a fonte atual da lista de alternativas
+        current_uid = _channel_dict['uid']
+        alternative_sources = [src for src in alternative_sources if src['uid'] != current_uid]
+
+        if not alternative_sources:
+            self.logger.error(f'No alternative sources found for content_uid: {content_uid}')
+            return None        
+
+        redirect_uri = None
+        for source in alternative_sources:
+            plugin = self.plugins.plugins.get(source.get('namespace'))
+            if not plugin or not plugin.plugin_obj or not plugin.plugin_obj.enabled:
+                continue
+            instance = plugin.plugin_obj.instances.get(source.get('instance'))
+            if not instance and not instance.enabled:
+                continue
+            if source.get('enabled') == 1:
+                redirect_uri = f"/{source.get('namespace')}/watch/{str(source['uid'])}"
+                break
+
+        if redirect_uri:
+            header = {'Location': redirect_uri, 'Content-Type': 'application/vnd.apple.mpegurl'}
+            return {
+                'code': 302,
+                'headers': header,
+                'text': None}
 
 
     def update_tuner_status(self, _status):

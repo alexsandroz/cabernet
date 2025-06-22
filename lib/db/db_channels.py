@@ -18,7 +18,7 @@ substantial portions of the Software.
 
 import ast
 import json
-import datetime
+from datetime import datetime
 import sqlite3
 import threading
 
@@ -143,6 +143,12 @@ sqlcmds = {
             number=?
             WHERE namespace=? AND instance=? AND uid=?
         """,
+    'channels_connection_status_update':
+        """
+        UPDATE channels SET 
+            last_seen=?, next_connection=?, error_count=?
+            WHERE namespace=? AND instance=? AND uid=?
+        """,
     'channels_del':
         """
         DELETE FROM channels WHERE updated LIKE ?
@@ -152,6 +158,14 @@ sqlcmds = {
         """
         SELECT * FROM channels WHERE namespace LIKE ?
         AND instance LIKE ? AND enabled LIKE ?
+        ORDER BY CAST(number as FLOAT), namespace, instance
+        """,
+    'channels_by_content_uid_get':
+        """
+        SELECT * FROM channels 
+        WHERE content_uid LIKE ?
+        AND enabled LIKE ?
+        AND (next_connection < datetime('now', 'localtime') OR next_connection IS NULL)
         ORDER BY CAST(number as FLOAT), namespace, instance
         """,
     'channels_one_get':
@@ -210,6 +224,12 @@ class DBChannels(DB):
             "FROM pragma_table_info('channels') WHERE name='content_uid'")
         if not has_content_uid:
             self.sql_exec("ALTER TABLE channels ADD COLUMN content_uid VARCHAR(255) NULL")
+        has_last_seen = self.get_dict(None, sql="SELECT name " \
+            "FROM pragma_table_info('channels') WHERE name='last_seen'")
+        if not has_last_seen:
+            self.sql_exec("ALTER TABLE channels ADD COLUMN last_seen TIMESTAMP NULL")
+            self.sql_exec("ALTER TABLE channels ADD COLUMN next_connection TIMESTAMP NULL")
+            self.sql_exec("ALTER TABLE channels ADD COLUMN error_count INTEGER DEFAULT 0 NULL")
 
     def save_channel_list(self, _namespace, _instance, _ch_dict, save_edit_groups=True):
         """
@@ -267,7 +287,7 @@ class DBChannels(DB):
                 raise ex
 
             self.add(DB_STATUS_TABLE, (
-                _namespace, _instance, datetime.datetime.now()))
+                _namespace, _instance, datetime.now()))
 
         self.delete(DB_CHANNELS_TABLE, (False, _namespace, _instance,))
 
@@ -307,7 +327,7 @@ class DBChannels(DB):
         if result:
             last_update = result[0][0]
             if last_update is not None:
-                return datetime.datetime.fromisoformat(last_update)
+                return datetime.fromisoformat(last_update)
             else:
                 return None
         else:
@@ -339,6 +359,9 @@ class DBChannels(DB):
                 rows_dict[row['uid']].append(row)
 
         return rows_dict
+
+    def get_channel_by_content_uid(self, _content_uid, _enabled=True):
+        return self.get_dict(DB_CHANNELS_TABLE + '_by_content_uid', (_content_uid, _enabled))
 
     def get_channel_names(self):
         return self.get_dict(DB_CHANNELS_TABLE + '_name')
@@ -405,6 +428,22 @@ class DBChannels(DB):
         number = str(_ch['number'])
         self.update(DB_CHANNELS_TABLE + '_num', (
             number,
+            _ch['namespace'],
+            _ch['instance'],
+            _ch['uid']
+        ))
+
+    def update_connection_status(self, _ch):
+        """
+        Updates connection status fields for one channel
+        """
+        last_seen = datetime.fromtimestamp(_ch['last_seen']) if _ch['last_seen'] is not None else None
+        next_connection = datetime.fromtimestamp(_ch['next_connection']) if _ch['next_connection'] is not None else None
+        error_count = _ch['error_count']
+        self.update(DB_CHANNELS_TABLE + '_connection_status', (
+            last_seen,
+            next_connection,
+            error_count,
             _ch['namespace'],
             _ch['instance'],
             _ch['uid']

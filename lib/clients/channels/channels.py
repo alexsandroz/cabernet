@@ -80,6 +80,7 @@ def get_channels_m3u(_config, _base_url, _namespace, _instance, _plugins):
     )
 
     sids_processed = []
+    content_uid_processed = []
     for sid, sid_data_list in ch_data.items():
         for sid_data in sid_data_list:
             if sid in sids_processed:
@@ -100,6 +101,14 @@ def get_channels_m3u(_config, _base_url, _namespace, _instance, _plugins):
                 uri = sid_data['json']['stream_url']
             else:
                 uri = ch_obj.set_uri(sid_data)
+
+            # Skip channels with same content_uid
+            # If channel fail m3u8proxy automatically switches to another channel with same content_uid
+            if stream == 'm3u8proxy':
+                if sid_data.get('content_uid') and sid_data.get('content_uid') in content_uid_processed:
+                    continue
+                if sid_data.get('content_uid'):
+                    content_uid_processed.append(sid_data.get('content_uid'))
 
             # NOTE tvheadend supports '|' separated names in two attributes
             # either 'group-title' or 'tvh-tags'
