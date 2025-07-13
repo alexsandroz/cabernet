@@ -121,6 +121,14 @@ class M3U8Proxy(Stream):
                     k.uri = f'{base_uri}?key={quote(uri)}' 
             
             playlist_data = playlist.dumps()
+            kodi_prop = 'EXTM3U\n'
+            kodi_prop += '#KODIPROP:inputstream=inputstream.ffmpegdirect\n'
+            kodi_prop += '#KODIPROP:mimetype=application/x-mpegURL\n'
+            kodi_prop += '#KODIPROP:inputstream.ffmpegdirect.manifest_type=hls\n'            
+            kodi_prop += '#KODIPROP:inputstream.ffmpegdirect.stream_mode=timeshift\n'
+            kodi_prop += '#KODIPROP:inputstream.ffmpegdirect.playback_as_live=true\n'
+            kodi_prop += '#KODIPROP:inputstream.ffmpegdirect.is_realtime_stream=true\n'
+            playlist_data.replace('EXTM3U\n', kodi_prop)
             response.headers['Content-Length'] = str(len(playlist_data))
 
             # Update channel connection status in the database
@@ -142,6 +150,8 @@ class M3U8Proxy(Stream):
 
     def update_error_connection(self, _channel_dict):
         last_seen = _channel_dict.get('last_seen', None)
+        if isinstance(last_seen, datetime):
+            last_seen = last_seen.timestamp()
         error_count = _channel_dict.get('error_count', 0) + 1
         # Increment next_connection by 1 minute exponentially up to a limit of 1 day
         if error_count < 25:
