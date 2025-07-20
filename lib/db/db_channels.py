@@ -261,7 +261,7 @@ class DBChannels(DB):
                     ch['thumbnail'],
                     str(ch['thumbnail_size']),
                     True,
-                    json.dumps(ch),
+                    json.dumps(ch, default=str),
                     ch.get('content_uid'),))
             except sqlite3.IntegrityError as ex:
                 # record already present.  Check the editable fields and update as needed
@@ -276,7 +276,7 @@ class DBChannels(DB):
                 self.update(DB_CHANNELS_TABLE, (
                     ch['number'],
                     True,
-                    json.dumps(ch),
+                    json.dumps(ch, default=str),
                     ch.get('content_uid'),
                     _namespace,
                     _instance,
@@ -287,6 +287,11 @@ class DBChannels(DB):
                     ch['id'], ch['number'], type(ch['name']), ch['name'], edit_groups, \
                     ch['thumbnail'], str(ch['thumbnail_size']) ))
                 raise ex
+            except BaseException as ex1:
+                self.logger.warning('InterfaceError: Bind data: {} : {} : ({}){} : {} : {} : {}'.format( \
+                    ch['id'], ch['number'], type(ch['name']), ch['name'], edit_groups, \
+                    ch['thumbnail'], str(ch['thumbnail_size']) ))
+                raise ex1
 
             self.add(DB_STATUS_TABLE, (
                 _namespace, _instance, datetime.now()))
@@ -403,7 +408,7 @@ class DBChannels(DB):
         """
         Updates the json field for one channel
         """
-        json_str = json.dumps(_ch)
+        json_str = json.dumps(_ch, default=str)
         self.update(DB_CHANNELS_TABLE + '_json', (
             json_str,
             _namespace,
